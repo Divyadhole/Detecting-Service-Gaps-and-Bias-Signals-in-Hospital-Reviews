@@ -140,9 +140,9 @@ hospital-review-bias-service-gaps-nlp/
 
 ## 🖥️ Streamlit App — Live Demo
 
-> **▶️ [Launch the App on Streamlit Cloud](https://divyadhole-hospital-review-nlp.streamlit.app)** ← *deploy your own instance using the button below*
+> **▶️ [Launch the App on Streamlit Cloud](https://detecting-service-gaps-and-bias-signals-in-tbtgkafcnjwzsgra2rh.streamlit.app)** ← *live, no install needed!*
 
-[![Deploy to Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/deploy?repository=Divyadhole/Detecting-Service-Gaps-and-Bias-Signals-in-Hospital-Reviews&branch=main&mainModule=app/streamlit_app.py)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://detecting-service-gaps-and-bias-signals-in-tbtgkafcnjwzsgra2rh.streamlit.app)
 
 The app has **4 interactive pages**:
 
