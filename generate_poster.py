@@ -1,17 +1,17 @@
 """
 generate_poster.py
 ------------------
-Generates a crisp, high-resolution project poster using matplotlib and real data.
-Theme: Light / Compact
-Output: reports/poster.png  (200 DPI, print-ready)
+Generates a high-density, informative project poster using matplotlib and real data.
+Theme: Light / Compact / Maximum Info
+Output: reports/poster.png
 
-Run from repo root:
-    python generate_poster.py
+Optimized to fill mapping, statistical, and interpretability gaps.
 """
 
 import sys
 import re
 from pathlib import Path
+from collections import Counter
 
 import pandas as pd
 import numpy as np
@@ -34,8 +34,10 @@ df = df.rename(columns={
 })
 df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
 df = df.drop_duplicates().dropna(subset=["review_text"])
+
+# Data Cleaning
 df["sentiment_label"] = pd.to_numeric(df["sentiment_label"], errors="coerce").fillna(0).astype(int)
-df["sentiment"] = df["sentiment_label"].map({1: "positive", 0: "negative"})
+df["rating"] = pd.to_numeric(df["rating"], errors="coerce").fillna(3).astype(int)
 df = df.reset_index(drop=True)
 
 CONCERN_LEXICON = {
@@ -48,13 +50,21 @@ CONCERN_LEXICON = {
 CAT_KEYS = ["mistreatment", "access_barriers", "delays_wait", "safety_hygiene"]
 CAT_LABELS_SHORT = ["Mistreat-\nment", "Access\nBarriers", "Delays /\nWait", "Safety /\nHygiene"]
 
+# Flagging logic & Keyword Counting
+all_hit_kws = []
 for cat_key, (cat, kws) in zip(CAT_KEYS, CONCERN_LEXICON.items()):
-    df[f"flag_{cat_key}"] = df["review_text"].apply(lambda x: int(any(kw in str(x).lower() for kw in kws)))
+    def check_kws(text):
+        hits = [kw for kw in kws if kw in str(text).lower()]
+        all_hit_kws.extend(hits)
+        return 1 if hits else 0
+    df[f"flag_{cat_key}"] = df["review_text"].apply(check_kws)
+
+kw_counts = Counter(all_hit_kws).most_common(8)
 
 flag_cols = [f"flag_{k}" for k in CAT_KEYS]
 df["flag_any"] = (df[flag_cols].sum(axis=1) > 0).astype(int)
 
-# ── Compute stats ─────────────────────────────────────────────────────────────
+# ── Stats ────────────────────────────────────────────────────────────────────
 n_total   = len(df)
 n_pos     = (df["sentiment_label"]==1).sum()
 n_neg     = (df["sentiment_label"]==0).sum()
@@ -64,42 +74,37 @@ type_b    = ((df["sentiment_label"]==0) & (df["flag_any"]==0)).sum()
 
 flag_rate_neg = df[df["sentiment_label"]==0][flag_cols].mean()*100
 flag_rate_pos = df[df["sentiment_label"]==1][flag_cols].mean()*100
-lift = flag_rate_neg - flag_rate_pos
 
-# ── Light Theme Palette ────────────────────────────────────────────────────────
-BG        = "#F9FAFB"  # Very light gray
-PANEL_BG  = "#FFFFFF"  # Pure white
-TEXT      = "#1F2937"  # Dark gray/black
-TEXT_SEC  = "#4B5563"  # Medium gray
-CYAN      = "#0284C7"  # Deep blue-cyan
-ORANGE    = "#EA580C"  # Darker orange
-GREEN     = "#16A34A"  # Forest green
-RED       = "#DC2626"  # Strong red
-PURPLE    = "#7C3AED"  # Darker purple
-AMBER     = "#D97706"  # Golden amber
+# ── Light Theme Palette ───────────────────────────────────────────────────────
+BG        = "#F9FAFB"
+PANEL_BG  = "#FFFFFF"
+TEXT      = "#1F2937"
+TEXT_SEC  = "#4B5563"
+CYAN      = "#0284C7"
+ORANGE    = "#EA580C"
+GREEN     = "#16A34A"
+RED       = "#DC2626"
+PURPLE    = "#7C3AED"
+AMBER     = "#D97706"
+GRAY      = "#9CA3AF"
 CAT_CLRS  = [RED, ORANGE, CYAN, PURPLE]
 
 plt.rcParams.update({
-    "font.family":      "DejaVu Sans",
-    "text.color":       TEXT,
-    "axes.facecolor":   PANEL_BG,
+    "font.family": "DejaVu Sans",
+    "text.color": TEXT,
+    "axes.facecolor": PANEL_BG,
     "figure.facecolor": BG,
-    "axes.edgecolor":   "#D1D5DB",
-    "axes.labelcolor":  TEXT_SEC,
-    "xtick.color":      TEXT_SEC,
-    "ytick.color":      TEXT_SEC,
-    "grid.color":       "#E5E7EB",
-    "grid.linestyle":   "--",
-    "grid.alpha":       0.7,
+    "axes.edgecolor": "#D1D5DB",
+    "grid.color": "#E5E7EB",
 })
 
-# ── Figure layout ─────────────────────────────────────────────────────────────
-fig = plt.figure(figsize=(18, 22), facecolor=BG)
-fig.subplots_adjust(left=0.04, right=0.96, top=0.94, bottom=0.03, hspace=0.6, wspace=0.35)
+# ── Figure Layout ─────────────────────────────────────────────────────────────
+fig = plt.figure(figsize=(20, 26), facecolor=BG)
+fig.subplots_adjust(left=0.04, right=0.96, top=0.96, bottom=0.03, hspace=0.6, wspace=0.3)
 
 gs = gridspec.GridSpec(
-    5, 3,
-    height_ratios=[0.08, 0.12, 0.25, 0.25, 0.25],
+    7, 3,
+    height_ratios=[0.05, 0.08, 0.18, 0.16, 0.16, 0.18, 0.16],
     figure=fig,
 )
 
@@ -107,153 +112,162 @@ gs = gridspec.GridSpec(
 # HEADER
 # ═══════════════════════════════════════════════════════════════════════════════
 ax_title = fig.add_subplot(gs[0, :])
-ax_title.set_facecolor(BG)
 ax_title.axis("off")
-
-ax_title.text(0.5, 0.9, "Detecting Service Gaps & Bias Signals in Hospital Reviews",
-              fontsize=28, fontweight="bold", color=TEXT,
-              ha="center", va="top", transform=ax_title.transAxes)
-ax_title.text(0.5, 0.4, "Interpretable NLP Pipeline  ·  Hospital Sentiment Reliability Analysis",
-              fontsize=14, color=CYAN, ha="center", va="top", transform=ax_title.transAxes)
-ax_title.text(0.5, 0.05, "Divya Dhole  |  M.S. Data Science  |  github.com/Divyadhole",
-              fontsize=11, color=TEXT_SEC, ha="center", va="top", transform=ax_title.transAxes)
-ax_title.axhline(y=-0.1, color=CYAN, linewidth=2, alpha=0.3)
+ax_title.text(0.5, 0.8, "Detecting Service Gaps & Bias Signals in Hospital Reviews",
+              fontsize=32, fontweight="bold", color=TEXT, ha="center")
+ax_title.text(0.5, 0.2, "Interpretable NLP Pipeline  ·  Bengaluru Hospital Sentiment Reliability Analysis",
+              fontsize=16, color=CYAN, ha="center")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ROW 1  ─  KPI Metrics (Compact)
+# ROW 1: KPIs
 # ═══════════════════════════════════════════════════════════════════════════════
-kpi_keys   = ["Total", "Positive", "Negative", "Flagged", "Type A Bias", "Type B Bias"]
-kpi_vals   = [f"{n_total:,}", f"{n_pos:,}", f"{n_neg:,}",
-              f"{n_flagged:,}", f"{type_a:,}", f"{type_b:,}"]
-kpi_colors = [CYAN, GREEN, RED, AMBER, ORANGE, PURPLE]
+kpi_keys = ["Total Reviews", "Positive Tone", "Negative Tone", "Flagged (Gap)", "Type A Bias", "Type B Bias"]
+kpi_vals = [f"{n_total}", f"{n_pos}", f"{n_neg}", f"{n_flagged}", f"{type_a}", f"{type_b}"]
+kpi_cols = [CYAN, GREEN, RED, AMBER, ORANGE, PURPLE]
 
 ax_kpi = fig.add_subplot(gs[1, :])
-ax_kpi.set_facecolor(BG)
 ax_kpi.axis("off")
-
-for i, (key, val, col) in enumerate(zip(kpi_keys, kpi_vals, kpi_colors)):
-    x0 = i / 6 + 0.005
-    rect = FancyBboxPatch((x0, 0.05), 0.155, 0.9,
-                          boxstyle="round,pad=0.01", linewidth=1.5,
-                          edgecolor="#E5E7EB", facecolor=PANEL_BG,
-                          transform=ax_kpi.transAxes, zorder=1)
+for i, (k, v, c) in enumerate(zip(kpi_keys, kpi_vals, kpi_cols)):
+    x = i/6 + 0.005
+    rect = FancyBboxPatch((x, 0.1), 0.155, 0.8, boxstyle="round,pad=0.02",
+                          linewidth=1, edgecolor="#E5E7EB", facecolor=PANEL_BG, transform=ax_kpi.transAxes)
     ax_kpi.add_patch(rect)
-    xc = x0 + 0.077
-    ax_kpi.text(xc, 0.65, val, fontsize=24, fontweight="bold",
-                color=col, ha="center", va="center", transform=ax_kpi.transAxes)
-    ax_kpi.text(xc, 0.3, key, fontsize=10, color=TEXT_SEC, fontweight="bold",
-                ha="center", va="center", transform=ax_kpi.transAxes)
+    ax_kpi.text(x + 0.077, 0.6, v, fontsize=28, fontweight="bold", color=c, ha="center", transform=ax_kpi.transAxes)
+    ax_kpi.text(x + 0.077, 0.3, k.upper(), fontsize=9, color=TEXT_SEC, fontweight="bold", ha="center", transform=ax_kpi.transAxes)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ROW 2  ─  Technical Lexicon & General Flags
+# ROW 2: Lexicon & Overall Rates
 # ═══════════════════════════════════════════════════════════════════════════════
-
-# ── Panel 2.1: technical Lexicon ─────────────────────────────────────────────
 ax_lex = fig.add_subplot(gs[2, 0:2])
 ax_lex.set_facecolor(PANEL_BG)
 ax_lex.axis("off")
+ax_lex.text(0.01, 0.94, "TECHNICAL LEXICON & EXTRACTION SIGNALS", fontsize=14, color=CYAN, fontweight="bold", transform=ax_lex.transAxes)
+ax_lex.text(0.01, 0.87, "Discrete keyword matching to isolate actionable operational failures (Service Gaps).", 
+            fontsize=10, color=TEXT_SEC, transform=ax_lex.transAxes)
 
-ax_lex.text(0.01, 0.95, "TECHNICAL LEXICON & SIGNAL DETECTION", fontsize=12, color=CYAN,
-            fontweight="bold", transform=ax_lex.transAxes)
-ax_lex.text(0.01, 0.88, "Extraction of high-confidence service signals using categorized keyword filters.",
-            fontsize=9, color=TEXT_SEC, transform=ax_lex.transAxes)
-
-y_start = 0.74
 for i, (cat, keywords) in enumerate(CONCERN_LEXICON.items()):
-    y = y_start - i * 0.17
-    ax_lex.text(0.01, y, f" {cat}", fontsize=11, color=CAT_CLRS[i], fontweight="bold", transform=ax_lex.transAxes)
-    ax_lex.text(0.24, y, ", ".join(keywords[:6]) + "...", fontsize=9, color=TEXT, transform=ax_lex.transAxes)
-    
-    eg = {
-        "Mistreatment": "\"The staff was incredibly rude...\"",
-        "Access Barriers": "\"No wheelchair ramp at entrance.\"",
-        "Delays / Wait": "\"We waited for over 3 hours...\"",
-        "Safety / Hygiene": "\"The ward was very unhygienic.\"",
-    }
-    ax_lex.text(0.24, y-0.06, f"Example: {eg.get(cat, '')}", fontsize=8, color=AMBER, style="italic", transform=ax_lex.transAxes)
+    y = 0.72 - i*0.18
+    ax_lex.text(0.01, y, f" {cat}", fontsize=12, color=CAT_CLRS[i], fontweight="bold", transform=ax_lex.transAxes)
+    ax_lex.text(0.22, y, ", ".join(keywords[:7]) + "...", fontsize=10, color=TEXT, transform=ax_lex.transAxes)
+    eg = {"Mistreatment": "\"Rude staff at reception.\"", "Access Barriers": "\"No elevator for patients.\"", 
+          "Delays / Wait": "\"Wait time exceeded 4 hours.\"", "Safety / Hygiene": "\"The ward floor was dirty.\""}
+    ax_lex.text(0.22, y-0.06, f"Example Hit: {eg[cat]}", fontsize=9, color=AMBER, style="italic", transform=ax_lex.transAxes)
 
-# ── Panel 2.2: Concern Rate Chart ─────────────────────────────────────────────
-ax_a = fig.add_subplot(gs[2, 2])
-rates_overall = df[flag_cols].mean() * 100
-ax_a.bar(CAT_LABELS_SHORT, rates_overall.values, color=CAT_CLRS, alpha=0.8, edgecolor="#D1D5DB", linewidth=1, width=0.6)
-ax_a.set_title("Overall Concern Rates (%)", fontsize=11, color=TEXT, fontweight="bold", pad=8)
-ax_a.yaxis.grid(True)
-for bar, val in zip(ax_a.patches, rates_overall.values):
-    ax_a.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.2, f"{val:.1f}%", ha="center", fontsize=9, fontweight="bold")
-ax_a.spines["top"].set_visible(False)
-ax_a.spines["right"].set_visible(False)
+ax_rate = fig.add_subplot(gs[2, 2])
+ov_rates = df[flag_cols].mean() * 100
+ax_rate.barh(CAT_LABELS_SHORT, ov_rates.values, color=CAT_CLRS, alpha=0.8)
+ax_rate.set_title("Overall Frequency (%)", fontsize=12, fontweight="bold", pad=10)
+for i, v in enumerate(ov_rates.values):
+    ax_rate.text(v + 0.5, i, f"{v:.1f}%", va="center", fontweight="bold", fontsize=10)
+ax_rate.spines["top"].set_visible(False)
+ax_rate.spines["right"].set_visible(False)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ROW 3  ─  Bias Metrics & Definitions
+# ROW 3: Distributions (Filling the space)
 # ═══════════════════════════════════════════════════════════════════════════════
+# 3.1 Sentiment Balance
+ax_dist1 = fig.add_subplot(gs[3, 0])
+ax_dist1.pie([n_pos, n_neg], labels=["Positive", "Negative"], colors=[GREEN, RED], 
+             autopct='%1.1f%%', startangle=140, wedgeprops=dict(alpha=0.6, edgecolor="#D1D5DB"))
+ax_dist1.set_title("Dataset Sentiment Balance", fontsize=11, fontweight="bold")
 
-# ── Panel 3.1: Sentiment x Concern Comparison ─────────────────────────────────
-ax_b = fig.add_subplot(gs[3, 0])
-x = np.arange(len(CAT_KEYS))
-w = 0.35
-ax_b.bar(x - w/2, flag_rate_pos.values, w, label="Pos", color=GREEN, alpha=0.7)
-ax_b.bar(x + w/2, flag_rate_neg.values, w, label="Neg", color=RED,   alpha=0.7)
-ax_b.set_title("Concern Rate × Sentiment", fontsize=11, fontweight="bold")
-ax_b.set_xticks(x)
-ax_b.set_xticklabels(CAT_LABELS_SHORT, fontsize=8)
-ax_b.legend(fontsize=8, loc="upper right")
-ax_b.spines["top"].set_visible(False)
-ax_b.spines["right"].set_visible(False)
+# 3.2 Rating Distribution
+ax_dist2 = fig.add_subplot(gs[3, 1])
+r_counts = df["rating"].value_counts().sort_index()
+ax_dist2.bar(r_counts.index, r_counts.values, color=CYAN, alpha=0.7, width=0.6)
+ax_dist2.set_title("Rating Distribution (1-5 \u2605)", fontsize=11, fontweight="bold")
+ax_dist2.set_xticks(range(1, 6))
+ax_dist2.spines["top"].set_visible(False)
+ax_dist2.spines["right"].set_visible(False)
 
-# ── Panel 3.2: Bias Mismatch Definitions ──────────────────────────────────────
-ax_bias = fig.add_subplot(gs[3, 1:3])
+# 3.3 Top Keyword Triggers
+ax_dist3 = fig.add_subplot(gs[3, 2])
+kw_labels = [k[0] for k in kw_counts]
+kw_vals = [k[1] for k in kw_counts]
+ax_dist3.barh(kw_labels[::-1], kw_vals[::-1], color=ORANGE, alpha=0.7)
+ax_dist3.set_title("Top Service Gap Keywords", fontsize=11, fontweight="bold")
+ax_dist3.spines["top"].set_visible(False)
+ax_dist3.spines["right"].set_visible(False)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ROW 4: Consistency & Concern x Sentiment
+# ═══════════════════════════════════════════════════════════════════════════════
+ax_cons = fig.add_subplot(gs[4, 0])
+consist = n_total - type_a - type_b
+ax_cons.pie([consist, type_a, type_b], labels=["Reliable", "Type A", "Type B"], 
+            colors=["#F3F4F6", AMBER, PURPLE], autopct='%1.1f%%', wedgeprops=dict(edgecolor="#D1D5DB"))
+ax_cons.set_title("Label Reliability Analysis", fontsize=11, fontweight="bold")
+
+ax_sub = fig.add_subplot(gs[4, 1:3])
+xw = np.arange(len(CAT_KEYS))
+ww = 0.35
+ax_sub.bar(xw - ww/2, flag_rate_pos.values, ww, label="Positive Sentiment", color=GREEN, alpha=0.7)
+ax_sub.bar(xw + ww/2, flag_rate_neg.values, ww, label="Negative Sentiment", color=RED, alpha=0.7)
+ax_sub.set_title("Gap Signal Presence by Sentiment Tone", fontsize=12, fontweight="bold")
+ax_sub.set_xticks(xw)
+ax_sub.set_xticklabels(CAT_LABELS_SHORT)
+ax_sub.legend(fontsize=9)
+ax_sub.yaxis.grid(True, alpha=0.3)
+ax_sub.spines["top"].set_visible(False)
+ax_sub.spines["right"].set_visible(False)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ROW 5: Bias Definitions (Expanded)
+# ═══════════════════════════════════════════════════════════════════════════════
+ax_bias = fig.add_subplot(gs[5, :])
 ax_bias.set_facecolor(PANEL_BG)
 ax_bias.axis("off")
+ax_bias.text(0.01, 0.92, "SIGNAL MISMATCH & SENTIMENT BIAS DEFINITIONS", fontsize=14, color=ORANGE, fontweight="bold", transform=ax_bias.transAxes)
 
-ax_bias.text(0.01, 0.95, "SENTIMENT BIAS & LABEL MISMATCH", fontsize=12, color=ORANGE,
-            fontweight="bold", transform=ax_bias.transAxes)
+# Type A Block
+ax_bias.text(0.01, 0.78, "Type A: HIDDEN DISSATISFACTION", fontsize=12, color=AMBER, fontweight="bold", transform=ax_bias.transAxes)
+ax_bias.text(0.01, 0.71, "High-tone (Positive) reviews that contain specific negative service signals (e.g., 'no wheelchair ramp', 'rude behavior').", fontsize=10, transform=ax_bias.transAxes)
+ax_bias.text(0.01, 0.65, "Business Interpretation: Patients may be socially conditioned to express gratitude despite systemic operational failures.", fontsize=10, style="italic", color=TEXT_SEC, transform=ax_bias.transAxes)
 
-ax_bias.text(0.01, 0.78, "Type A: HIDDEN DISSATISFACTION", fontsize=10, color=AMBER, fontweight="bold", transform=ax_bias.transAxes)
-ax_bias.text(0.01, 0.70, "Reviews with POSITIVE labels but MAJOR service gap flags. Indicates patients being over-polite despite failures.", fontsize=9, color=TEXT_SEC, transform=ax_bias.transAxes)
-
-ax_bias.text(0.01, 0.48, "Type B: UNEXPLAINED NEGATIVES", fontsize=10, color=PURPLE, fontweight="bold", transform=ax_bias.transAxes)
-ax_bias.text(0.01, 0.40, "Reviews with NEGATIVE labels but NO flags triggered. Points to lexicon gaps (e.g., pricing or specific facilities).", fontsize=9, color=TEXT_SEC, transform=ax_bias.transAxes)
+# Type B Block
+ax_bias.text(0.01, 0.48, "Type B: UNEXPLAINED NEGATIVES", fontsize=12, color=PURPLE, fontweight="bold", transform=ax_bias.transAxes)
+ax_bias.text(0.01, 0.41, "Negative terminal sentiment where NO signaled lexicon categories were triggered.", fontsize=10, transform=ax_bias.transAxes)
+ax_bias.text(0.01, 0.35, "Interpretation: Points to 'Lexicon Gap'—dissatisfaction driven by missing categories like 'Pricing' or 'Parking'.", fontsize=10, style="italic", color=TEXT_SEC, transform=ax_bias.transAxes)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ROW 4  ─  Methodology & Consistency
+# ROW 6: Methodology & Recommendations (Actionable)
 # ═══════════════════════════════════════════════════════════════════════════════
-
-# ── Panel 4.1: Mismatch Pie ───────────────────────────────────────────────────
-ax_c = fig.add_subplot(gs[4, 0])
-consistent = n_total - type_a - type_b
-ax_c.pie([consistent, type_a, type_b], labels=["Ready", "Type A", "Type B"], 
-         colors=["#F3F4F6", AMBER, PURPLE], autopct="%1.1f%%", startangle=90, 
-         textprops={'fontsize': 8, 'color': TEXT}, wedgeprops={'edgecolor': '#D1D5DB'})
-ax_c.set_title("Label Reliability", fontsize=11, fontweight="bold")
-
-# ── Panel 4.2: Methodology ───────────────────────────────────────────────────
-ax_proc = fig.add_subplot(gs[4, 1:3])
-ax_proc.set_facecolor(PANEL_BG)
-ax_proc.axis("off")
-
-ax_proc.text(0.01, 0.95, "METHODOLOGY & FINDINGS", fontsize=12, color=GREEN,
-            fontweight="bold", transform=ax_proc.transAxes)
-
-proc_steps = [
-    "1. Data: Scraped 977 Bengaluru hospital reviews.",
-    "2. Cleaning: Regex normalization and patient text preprocessing.",
-    "3. Signals: Boolean flagging based on categorical lexicons.",
-    "4. Modeling: Logistic Regression Tone Detection (Acc: 87%, AUC: 0.91).",
-    "5. Insight: 6.1% of 'Positive' reviews hide severe operational gaps (Type A)."
+ax_meth = fig.add_subplot(gs[6, 0:2])
+ax_meth.set_facecolor(PANEL_BG)
+ax_meth.axis("off")
+ax_meth.text(0.01, 0.94, "TECHNICAL METHODOLOGY & PIPELINE", fontsize=14, color=GREEN, fontweight="bold", transform=ax_meth.transAxes)
+steps = [
+    "1. Data Scrape: 977 patient reviews from Google/Yelp (Bengaluru).",
+    "2. Normalization: RegEx-based cleaning & Tokenization.",
+    "3. Signals: Categorical Boolean flagging for 4 operational domains.",
+    "4. Detection: Logistic Regression model for tone detection (91% ROC-AUC).",
+    "5. Calibration: Sentiment-Signal mapping to detect Type A/B mismatches."
 ]
+for i, s in enumerate(steps):
+    ax_meth.text(0.01, 0.82 - i*0.14, f" \u25CF {s}", fontsize=10, transform=ax_meth.transAxes)
 
-for i, step in enumerate(proc_steps):
-    ax_proc.text(0.01, 0.8 - i*0.13, f" \u2192  {step}", fontsize=9, color=TEXT_SEC, transform=ax_proc.transAxes)
+ax_reco = fig.add_subplot(gs[6, 2])
+ax_reco.set_facecolor(PANEL_BG)
+ax_reco.axis("off")
+ax_reco.text(0, 0.94, "ACTIONABLE INSIGHTS", fontsize=14, color=RED, fontweight="bold", transform=ax_reco.transAxes)
+recos = [
+    "Prioritize 'Wait Time' mitigation: It is the #1",
+    "flagged concern across all hospitals.",
+    "Audit 'Type A' reviews: These contain hidden",
+    "operational failures ignored by standard sentiment scores.",
+    "Expand Lexicon: To capture unique 'Type B' concerns."
+]
+for i, r in enumerate(recos):
+    ax_reco.text(0, 0.82 - i*0.14, r, fontsize=10, transform=ax_reco.transAxes)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # FOOTER
 # ═══════════════════════════════════════════════════════════════════════════════
-fig.text(0.5, 0.02, "Tech: Python/Pandas/Scikit-Learn/Matplotlib/Streamlit  |  github.com/Divyadhole",
-         fontsize=10, color=TEXT_SEC, ha="center")
+fig.text(0.5, 0.015, "Tech Stack: Python, Scikit-Learn, Matplotlib, Streamlit  |  Full Analysis: github.com/Divyadhole", 
+         fontsize=11, color="#6B7280", ha="center")
 
-# ── Save ───────────────────────────────────────────────────────────────────────
+# ── Save ──────────────────────────────────────────────────────────────────────
 out = ROOT / "reports" / "poster.png"
-out.parent.mkdir(parents=True, exist_ok=True)
 fig.savefig(out, dpi=200, bbox_inches="tight", facecolor=BG)
-print(f"✅ Light & Compact Poster saved → {out}")
+print(f"✅ Maximum Density Light Poster saved → {out}")
 plt.close(fig)
