@@ -140,9 +140,9 @@ hospital-review-bias-service-gaps-nlp/
 
 ## 🖥️ Streamlit App — Live Demo
 
-> **▶️ [Launch the App on Streamlit Cloud](https://detecting-service-gaps-and-bias-signals-in-tbtgkafcnjwzsgra2rh.streamlit.app)** ← *live, no install needed!*
+> **▶️ [Launch the App on Streamlit Cloud](https://detecting-service-gaps-and-bias-signals-in-tbtgkafcnjwzsgra2rh.streamlit.app/)** ← *live, no install needed!*
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://detecting-service-gaps-and-bias-signals-in-tbtgkafcnjwzsgra2rh.streamlit.app)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://detecting-service-gaps-and-bias-signals-in-tbtgkafcnjwzsgra2rh.streamlit.app/)
 
 The app has **4 interactive pages**:
 
