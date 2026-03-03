@@ -6,7 +6,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.2%2B-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)](https://scikit-learn.org)
-[![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
+[![Streamlit App](https://img.shields.io/badge/🖥%20Live%20App-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](http://localhost:8501)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Interview--Ready-brightgreen?style=for-the-badge)]()
 
@@ -139,6 +139,8 @@ hospital-review-bias-service-gaps-nlp/
 ---
 
 ## 🖥️ Streamlit App — Live Demo
+
+> **▶️ [Launch the App → http://localhost:8501](http://localhost:8501)**  *(run locally after cloning — see instructions below)*
 
 The app has **4 interactive pages**:
 
