@@ -1,0 +1,25 @@
+# Core data
+pandas>=1.5.0
+numpy>=1.23.0
+
+# NLP
+nltk>=3.8.0
+gensim>=4.3.0
+
+# ML
+scikit-learn>=1.2.0
+
+# Visualisation
+matplotlib>=3.6.0
+
+# Notebooks
+jupyter>=1.0.0
+jupyterlab>=3.6.0
+ipykernel>=6.0.0
+
+# App
+streamlit>=1.28.0
+
+# Utilities
+tqdm>=4.65.0
+python-dotenv>=1.0.0
